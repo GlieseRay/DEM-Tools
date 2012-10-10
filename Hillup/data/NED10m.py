@@ -16,6 +16,8 @@ from TileStache.Geography import SphericalMercator
 
 from osgeo import gdal, osr
 
+from .download import wget
+
 ideal_zoom = 15 ### log(3 * 3600*360 / 256) / log(2) # ~13.9
 
 osr.UseExceptions() # <-- otherwise errors will be silent and useless.
@@ -83,24 +85,16 @@ def datasource(lat, lon, source_dir):
     #
     print >> stderr, 'Retrieving', url, 'in DEM.NED10m.datasource().'
 
-    conn = HTTPConnection(host, 80)
-    conn.request('GET', path)
-    resp = conn.getresponse()
-
-    if resp.status == 404:
-        # we're probably outside the coverage area
-        print >> open(local_none, 'w'), url
-        return None
-
-    assert resp.status == 200, (resp.status, resp.read())
-
     try:
         dirpath = mkdtemp(prefix='ned10m-')
         zippath = join(dirpath, 'dem.zip')
 
-        zipfile = open(zippath, 'w')
-        zipfile.write(resp.read())
-        zipfile.close()
+        try:
+            wget(url, zippath)
+        except Exception:
+            with open(local_none, 'w') as fp:
+                fp.write(url)
+            return None
 
         zipfile = ZipFile(zippath)
 
