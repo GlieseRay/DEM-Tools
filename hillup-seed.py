@@ -44,20 +44,20 @@ def generateCoordinates(ul, lr, zooms, padding):
     """
     # start with a simple total of all the coordinates we will need.
     count = 0
-    
+
     for zoom in zooms:
         ul_ = ul.zoomTo(zoom).container().left(padding).up(padding)
         lr_ = lr.zoomTo(zoom).container().right(padding).down(padding)
-        
+
         rows = lr_.row + 1 - ul_.row
         cols = lr_.column + 1 - ul_.column
-        
+
         count += int(rows * cols)
 
     # now generate the actual coordinates.
     # offset starts at zero
     offset = 0
-    
+
     for zoom in zooms:
         ul_ = ul.zoomTo(zoom).container().left(padding).up(padding)
         lr_ = lr.zoomTo(zoom).container().right(padding).down(padding)
@@ -65,9 +65,9 @@ def generateCoordinates(ul, lr, zooms, padding):
         for row in range(int(ul_.row), int(lr_.row + 1)):
             for column in range(int(ul_.column), int(lr_.column + 1)):
                 coord = Coordinate(row, column, zoom)
-                
+
                 yield (offset, count, coord)
-                
+
                 offset += 1
 
 if __name__ == '__main__':
@@ -82,7 +82,7 @@ if __name__ == '__main__':
 
     northwest = Location(north, west)
     southeast = Location(south, east)
-    
+
     webmerc = SphericalMercator()
 
     ul = webmerc.locationCoordinate(northwest)
@@ -93,11 +93,11 @@ if __name__ == '__main__':
             raise KnownUnknown('"%s" is not a valid numeric zoom level.' % zoom)
 
         zooms[i] = int(zoom)
-    
+
     layer = SeedingLayer(options.demdir, options.tiledir, options.tmpdir, options.source)
 
     for (offset, count, coord) in generateCoordinates(ul, lr, zooms, 0):
-        
+
         mimetype, content = getTile(layer, coord, 'TIFF', True)
 
         print coord

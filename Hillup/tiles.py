@@ -22,26 +22,26 @@ def get_slope_aspect(source_dir, coord):
     #
     z, x, y = '%d' % coord.zoom, '%06d' % coord.column, '%06d' % coord.row
     tile_path = '/'.join((z, x[:3], x[3:], y[:3], y[3:])) + '.tiff'
-    
+
     scheme, host, dir_path, p, q, f = urlparse(source_dir)
-    
+
     if scheme in ('file', ''):
         # Local files are read directly
         return read_slope_aspect(join(dir_path, tile_path))
-    
+
     if scheme != 'http':
         raise IOError('Unknown scheme "%s"' % scheme)
 
     try:
         # Remote tiles have to be downloaded first for GDAL.
-        tile_href = urljoin(source_dir.rstrip('/')+'/', tile_path)
+        tile_href = urljoin(source_dir.rstrip('/') + '/', tile_path)
         handle, tile_path = mkstemp(prefix='hillup-tile-', suffix='.tiff')
-        
+
         write(handle, urlopen(tile_href).read())
         close(handle)
-        
+
         return read_slope_aspect(join(dir_path, tile_path))
-    
+
     finally:
         # No matter what happens, keep the local filesystem clean.
         remove(tile_path)
@@ -59,10 +59,10 @@ def render_tile(source_dir, coord, min_zoom):
         Source directory can be a local path, absolute path or URL.
     """
     original = coord.copy()
-    
+
     if original.zoom < min_zoom:
         raise Exception('Unable to find a suitable DEM tile for tile %d/%d/%d at zoom %d or above.' % (original.zoom, original.column, original.row, min_zoom))
-    
+
     while coord.zoom >= min_zoom:
         #
         # Basic hill shading
@@ -79,27 +79,27 @@ def render_tile(source_dir, coord, min_zoom):
         #
         # Flat ground to 50% gray exactly by way of an exponent.
         #
-        flat = numpy.array([pi/2], dtype=float)
+        flat = numpy.array([pi / 2], dtype=float)
         flat = shade_hills(flat, flat)[0]
         exp = log(0.5) / log(flat)
-        
+
         shaded = numpy.power(shaded, exp)
 
         #
         # Extract the desired tile out of the shaded image, if necessary.
         #
         h, w = shaded.shape
-        
+
         if coord.zoom < original.zoom:
             ul = original.zoomTo(coord.zoom).left(coord.column).up(coord.row)
             lr = original.down().right().zoomTo(coord.zoom).left(coord.column).up(coord.row)
-            
+
             left, top, right, bottom = map(int, (ul.column * w, ul.row * h, lr.column * w, lr.row * h))
-            
+
             shaded = shaded[top:bottom, left:right]
-        
+
         return arr2img(0xFF * shaded.clip(0, 1)).resize((w, h), resample)
-    
+
     raise Exception('Unable to find a suitable DEM tile for tile %d/%d/%d at zoom %d or above.' % (original.zoom, original.column, original.row, min_zoom))
 
 class Provider:
@@ -115,17 +115,17 @@ class Provider:
     """
     def __init__(self, layer, source_dir):
         self.layer = layer
-        
+
         source_dir = urljoin(layer.config.dirpath, source_dir)
         scheme, host, path, p, q, f = urlparse(source_dir)
         assert scheme in ('http', 'file', '')
 
         self.source_dir = path if (scheme == '') else '%(scheme)s://%(host)s%(path)s' % locals()
-    
+
     def renderTile(self, width, height, srs, coord):
         """
         """
         if srs != SphericalMercator().srs:
             raise Exception('Tile projection must be spherical mercator, not "%(srs)s"' % locals())
-        
+
         return render_tile(self.source_dir, coord, 0)

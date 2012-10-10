@@ -28,14 +28,14 @@ def quads(minlon, minlat, maxlon, maxlat):
     """
     lon = floor(minlon)
     while lon <= maxlon:
-    
+
         lat = ceil(maxlat)
         while lat >= minlat:
-        
+
             yield lon, lat
-        
+
             lat -= 1
-    
+
         lon += 1
 
 def datasource(lat, lon, source_dir):
@@ -50,19 +50,19 @@ def datasource(lat, lon, source_dir):
     # FIXME for southern/western hemispheres
     fmt = 'http://tdds.cr.usgs.gov/ned/13arcsec/float/float_zips/n%02dw%03d.zip'
     url = fmt % (abs(lat), abs(lon))
-    
+
     #
     # Create a local filepath
     #
     s, host, path, p, q, f = urlparse(url)
-    
+
     local_dir = md5(url).hexdigest()[:3]
     local_dir = join(source_dir, local_dir)
-    
+
     local_base = join(local_dir, basename(path)[:-4])
     local_path = local_base + '.flt'
     local_none = local_base + '.404'
-    
+
     #
     # Check if the file exists locally
     #
@@ -75,25 +75,25 @@ def datasource(lat, lon, source_dir):
     if not exists(local_dir):
         makedirs(local_dir)
         chmod(local_dir, 0777)
-    
+
     assert isdir(local_dir)
-    
+
     #
     # Grab a fresh remote copy
     #
     print >> stderr, 'Retrieving', url, 'in DEM.NED10m.datasource().'
-    
+
     conn = HTTPConnection(host, 80)
     conn.request('GET', path)
     resp = conn.getresponse()
-    
+
     if resp.status == 404:
         # we're probably outside the coverage area
         print >> open(local_none, 'w'), url
         return None
-    
+
     assert resp.status == 200, (resp.status, resp.read())
-    
+
     try:
         dirpath = mkdtemp(prefix='ned10m-')
         zippath = join(dirpath, 'dem.zip')
@@ -103,7 +103,7 @@ def datasource(lat, lon, source_dir):
         zipfile.close()
 
         zipfile = ZipFile(zippath)
-        
+
         for name in zipfile.namelist():
             if fnmatch(name, '*/*/float*.???') and name[-4:] in ('.hdr', '.flt', '.prj'):
                 local_file = local_base + name[-4:]
@@ -117,21 +117,21 @@ def datasource(lat, lon, source_dir):
             else:
                 # don't recognize the contents of this zip file
                 continue
-            
+
             zipfile.extract(name, dirpath)
             move(join(dirpath, name), local_file)
-            
+
             if local_file.endswith('.hdr'):
                 # GDAL needs some extra hints to understand the raw float data
                 hdr_file = open(local_file, 'a')
                 print >> hdr_file, 'nbits 32'
                 print >> hdr_file, 'pixeltype float'
-        
+
         #
         # The file better exist locally now
         #
         return gdal.Open(local_path, gdal.GA_ReadOnly)
-    
+
     finally:
         rmtree(dirpath)
 

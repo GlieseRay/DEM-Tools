@@ -6,10 +6,10 @@ def datasource(lat, lon, source_dir):
     '''
     '''
     vfp_ds = vfp_datasource(lat, lon, source_dir)
-    
+
     if vfp_ds is not None:
         return vfp_ds
-    
+
     return srtm3_datasource(lat, lon, source_dir)
 
 def datasources(minlon, minlat, maxlon, maxlat, source_dir):

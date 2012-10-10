@@ -81,54 +81,54 @@ def region(lat, lon):
     if -45 <= lat and lat < -25 and -180 <= lon and lon < -175:
         # southern hemisphere, near dateline
         return 'Islands'
-    
+
     elif 15 <= lat and lat < 30 and -180 <= lon and lon < -150:
         # around hawaii
         return 'Islands'
-    
+
     elif -60 <= lat and lat < -35 and -40 <= lon and lon < 80:
         # south atlantic ocean
         return 'Islands'
-    
+
     elif -35 <= lat and lat < -5 and -30 <= lon and lon < -5:
         # mid-atlantic, between africa and south america
         return 'Islands'
-    
+
     elif -60 <= lat and lat < -40 and 155 <= lon and lon < 180:
         # southern half of new zealand
         return 'Islands'
-    
+
     elif -40 <= lat and lat < -25 and 165 <= lon and lon < 180:
         # northern half of new zealand
         return 'Islands'
-    
+
     if 15 <= lat and lat < 61 and -170 <= lon and lon < -40:
         return 'North_America'
-    
+
     elif -60 <= lat and lat < 15 and -95 <= lon and lon < -30:
         return 'South_America'
-    
+
     elif -35 <= lat and lat < 35 and -30 <= lon and lon < 60:
         return 'Africa'
-    
+
     elif -20 <= lat and lat < -15 and 60 <= lon and lon < 65:
         return 'Africa'
-    
+
     elif 35 <= lat and lat < 40 and -35 <= lon and lon < -20:
         return 'Africa'
-    
+
     elif -10 <= lat and lat < 61 and -15 <= lon and lon < 180:
         return 'Eurasia'
-    
+
     elif -10 <= lat and lat < 61 and -180 <= lon and lon < -135:
         return 'Eurasia'
-    
+
     elif -15 <= lat and lat < -10 and 95 <= lon and lon < 100:
         return 'Eurasia'
-    
+
     elif -45 <= lat and lat < -10 and 110 <= lon and lon < 180:
         return 'Australia'
-    
+
     raise ValueError('Unknown location: %s, %s' % (lat, lon))
 
 def filename(lat, lon):
@@ -150,14 +150,14 @@ def quads(minlon, minlat, maxlon, maxlat):
     """
     lon = floor(minlon)
     while lon <= maxlon:
-    
+
         lat = floor(minlat)
         while lat <= maxlat:
-        
+
             yield lon, lat
-        
+
             lat += 1
-    
+
         lon += 1
 
 def datasource(lat, lon, source_dir):
@@ -176,18 +176,18 @@ def datasource(lat, lon, source_dir):
 
     fmt = 'http://dds.cr.usgs.gov/srtm/version2_1/SRTM3/%s/%s.hgt.zip'
     url = fmt % (reg, filename(lat, lon))
-    
+
     #
     # Create a local filepath
     #
     s, host, path, p, q, f = urlparse(url)
-    
+
     dem_dir = md5(url).hexdigest()[:3]
     dem_dir = join(source_dir, dem_dir)
-    
+
     dem_path = join(dem_dir, basename(path)[:-4])
-    dem_none = dem_path[:-4]+'.404'
-    
+    dem_none = dem_path[:-4] + '.404'
+
     #
     # Check if the file exists locally
     #
@@ -200,25 +200,25 @@ def datasource(lat, lon, source_dir):
     if not exists(dem_dir):
         makedirs(dem_dir)
         chmod(dem_dir, 0777)
-    
+
     assert isdir(dem_dir)
-    
+
     #
     # Grab a fresh remote copy
     #
     print >> stderr, 'Retrieving', url, 'in DEM.SRTM3.datasource().'
-    
+
     conn = HTTPConnection(host, 80)
     conn.request('GET', path)
     resp = conn.getresponse()
-    
+
     if resp.status == 404:
         # we're probably outside the coverage area
         print >> open(dem_none, 'w'), url
         return None
-    
+
     assert resp.status == 200, (resp.status, resp.read())
-    
+
     try:
         #
         # Get the DEM out of the zip file
@@ -226,18 +226,18 @@ def datasource(lat, lon, source_dir):
         handle, zip_path = mkstemp(prefix='srtm3-', suffix='.zip')
         write(handle, resp.read())
         close(handle)
-        
+
         zipfile = ZipFile(zip_path, 'r')
-        
+
         #
         # Write the actual DEM
         #
         dem_file = open(dem_path, 'w')
         dem_file.write(zipfile.read(zipfile.namelist()[0]))
         dem_file.close()
-        
+
         chmod(dem_path, 0666)
-    
+
     finally:
         unlink(zip_path)
 

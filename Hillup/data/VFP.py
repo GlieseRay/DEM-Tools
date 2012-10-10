@@ -16,18 +16,18 @@ def datasource(lat, lon, source_dir):
     """
     fmt = 'http://viewfinderpanos-index.herokuapp.com/index.php/%s.hgt'
     url = fmt % filename(lat, lon)
-    
+
     #
     # Create a local filepath
     #
     s, host, path, p, q, f = urlparse(url)
-    
+
     dem_dir = md5(url).hexdigest()[:3]
     dem_dir = join(source_dir, dem_dir)
-    
+
     dem_path = join(dem_dir, basename(path))
-    dem_none = dem_path[:-4]+'.404'
-    
+    dem_none = dem_path[:-4] + '.404'
+
     #
     # Check if the file exists locally
     #
@@ -40,30 +40,30 @@ def datasource(lat, lon, source_dir):
     if not exists(dem_dir):
         makedirs(dem_dir)
         chmod(dem_dir, 0777)
-    
+
     assert isdir(dem_dir)
-    
+
     #
     # Grab a fresh remote copy
     #
     print >> stderr, 'Retrieving', url, 'in VFP.vfp_datasource().'
-    
+
     conn = HTTPConnection(host, 80)
     conn.request('GET', path)
     resp = conn.getresponse()
-    
+
     if resp.status == 404:
         # we're probably outside the coverage area, use SRTM3 instead
         print >> open(dem_none, 'w'), url
         return None
-    
+
     print >> stderr, 'Found', resp.getheader('location'), 'X-Zip-Path:', resp.getheader('x-zip-path')
 
     assert resp.status in range(300, 399), (resp.status, resp.read())
-    
+
     zip_location = urljoin(url, resp.getheader('location'))
     zip_filepath = resp.getheader('x-zip-path')
-    
+
     #
     # Get the real zip archive
     #
@@ -74,9 +74,9 @@ def datasource(lat, lon, source_dir):
     conn = HTTPConnection(host, 80)
     conn.request('GET', path)
     resp = conn.getresponse()
-    
+
     assert resp.status in range(200, 299), (resp.status, resp.read())
-    
+
     try:
         #
         # Get the DEM out of the zip file
@@ -84,20 +84,20 @@ def datasource(lat, lon, source_dir):
         handle, zip_path = mkstemp(prefix='vfp-', suffix='.zip')
         write(handle, resp.read())
         close(handle)
-        
+
         zipfile = ZipFile(zip_path, 'r')
-        
+
         #
         # Write the actual DEM
         #
         print >> stderr, 'Extracting', zip_filepath, 'to', dem_path
-    
+
         dem_file = open(dem_path, 'w')
         dem_file.write(zipfile.read(zip_filepath))
         dem_file.close()
-        
+
         chmod(dem_path, 0666)
-    
+
     finally:
         unlink(zip_path)
 

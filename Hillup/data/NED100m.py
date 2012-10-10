@@ -26,14 +26,14 @@ def quads(minlon, minlat, maxlon, maxlat):
     """
     lon = floor(minlon)
     while lon <= maxlon:
-    
+
         lat = ceil(maxlat)
         while lat >= minlat:
-        
+
             yield lon, lat
-        
+
             lat -= 1
-    
+
         lon += 1
 
 def datasource(lat, lon, source_dir):
@@ -44,19 +44,19 @@ def datasource(lat, lon, source_dir):
     # FIXME for southern/western hemispheres
     fmt = 'http://ned.stamen.com/100m/n%02dw%03d.tif.gz'
     url = fmt % (abs(lat), abs(lon))
-    
+
     #
     # Create a local filepath
     #
     s, host, path, p, q, f = urlparse(url)
-    
+
     local_dir = md5(url).hexdigest()[:3]
     local_dir = join(source_dir, local_dir)
-    
+
     local_base = join(local_dir, basename(path)[:-7])
     local_path = local_base + '.tif'
     local_none = local_base + '.404'
-    
+
     #
     # Check if the file exists locally
     #
@@ -69,30 +69,30 @@ def datasource(lat, lon, source_dir):
     if not exists(local_dir):
         makedirs(local_dir)
         chmod(local_dir, 0777)
-    
+
     assert isdir(local_dir)
-    
+
     #
     # Grab a fresh remote copy
     #
     print >> stderr, 'Retrieving', url, 'in DEM.NED100m.datasource().'
-    
+
     conn = HTTPConnection(host, 80)
     conn.request('GET', path)
     resp = conn.getresponse()
-    
+
     if resp.status in range(400, 500):
         # we're probably outside the coverage area
         print >> open(local_none, 'w'), url
         return None
-    
+
     assert resp.status == 200, (resp.status, resp.read())
-    
+
     body = StringIO(resp.read())
     file = GzipFile(fileobj=body, mode='r')
-    
+
     open(local_path, mode='w').write(file.read())
-    
+
     #
     # The file better exist locally now
     #

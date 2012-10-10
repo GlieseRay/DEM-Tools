@@ -45,7 +45,7 @@ class SeedingLayer (Layer):
         cache = Disk(tiledir, dirs='safe')
         config = Configuration(cache, '.')
         Layer.__init__(self, config, SphericalMercator(), Metatile())
-        
+
         self.provider = Provider(self, demdir, tmpdir, source)
 
     def name(self):
@@ -63,21 +63,21 @@ class Provider:
         self.tmpdir = tmpdir
         self.demdir = demdir
         self.source = source
-    
+
     def getTypeByExtension(self, ext):
         if ext.lower() != 'tiff':
             raise Exception()
-        
+
         return 'image/tiff', 'TIFF'
-    
+
     def renderArea(self, width, height, srs, xmin, ymin, xmax, ymax, zoom):
         """ Return an instance of SlopeAndAspect for requested area.
         """
         assert srs == webmerc_proj.srs # <-- good enough for now
-        
+
         if self.source == 'srtm-ned':
             providers = choose_providers_srtm(zoom)
-        
+
         elif self.source == 'ned-only':
             providers = choose_providers_ned(zoom)
 
@@ -89,52 +89,52 @@ class Provider:
 
         else:
             providers = load_func_path(self.source)(zoom)
-        
+
         assert sum([proportion for (mod, proportion) in providers]) == 1.0
-        
+
         #
         # Prepare information for datasets of the desired extent and projection.
         #
-        
+
         xres = (xmax - xmin) / width
         yres = (ymin - ymax) / height
 
         area_wkt = webmerc_sref.ExportToWkt()
         buffered_xform = xmin - xres, xres, 0, ymax - yres, 0, yres
-        
+
         #
         # Reproject and merge DEM datasources into destination datasets.
         #
-        
+
         driver = gdal.GetDriverByName('GTiff')
-        
-        composite_ds = make_empty_datasource(width+2, height+2, buffered_xform, area_wkt, self.tmpdir)
+
+        composite_ds = make_empty_datasource(width + 2, height + 2, buffered_xform, area_wkt, self.tmpdir)
         proportion_complete = 0.
 
         for (module, proportion) in providers:
-        
+
             cs2cs = osr.CoordinateTransformation(webmerc_sref, module.sref)
-            
+
             minlon, minlat, z = cs2cs.TransformPoint(xmin, ymin)
             maxlon, maxlat, z = cs2cs.TransformPoint(xmax, ymax)
-            
+
             #
             # Keep a version of the composite without the
             # current layer applied for later alpha-blending.
             #
             do_blending = bool(proportion_complete > 0 and proportion < 1)
-            
+
             if do_blending:
                 composite_without = composite_ds.ReadAsArray()
-            
+
             ds_args = minlon, minlat, maxlon, maxlat, self.demdir
-            
+
             for ds_dem in module.datasources(*ds_args):
-            
+
                 # estimate the raster density across source DEM and output
                 dem_samples = (maxlon - minlon) / ds_dem.GetGeoTransform()[1]
                 area_pixels = (xmax - xmin) / composite_ds.GetGeoTransform()[1]
-                
+
                 if dem_samples > area_pixels:
                     # cubic looks better squeezing down
                     resample = gdal.GRA_Cubic
@@ -144,34 +144,34 @@ class Provider:
 
                 gdal.ReprojectImage(ds_dem, composite_ds, ds_dem.GetProjection(), composite_ds.GetProjection(), resample)
                 ds_dem = None
-            
+
             #
             # Perform alpha-blending if needed.
             #
             if do_blending:
                 proportion_with = proportion / (proportion_complete + proportion)
                 proportion_without = 1 - proportion_with
-                
+
                 composite_with = composite_ds.ReadAsArray() * proportion_with
                 composite_with += composite_without * proportion_without
 
                 composite_ds.GetRasterBand(1).WriteArray(composite_with, 0, 0)
-            
+
             proportion_complete += proportion
-                
+
         elevation = composite_ds.ReadAsArray()
 
         unlink(composite_ds.GetFileList()[0])
         composite_ds = None
-        
+
         #
         # Calculate and save slope and aspect.
         #
-        
+
         slope, aspect = calculate_slope_aspect(elevation, xres, yres)
 
         tile_xform = xmin, xres, 0, ymax, 0, yres
-        
+
         return SlopeAndAspect(self.tmpdir, slope, aspect, area_wkt, tile_xform)
 
 class SlopeAndAspect:
@@ -186,23 +186,23 @@ class SlopeAndAspect:
         """ Instantiate with array of slope and aspect, and minimal geographic information.
         """
         self.tmpdir = tmpdir
-        
+
         self.slope = slope
         self.aspect = aspect
-        
+
         self.w, self.h = self.slope.shape
 
         self.wkt = wkt
         self.xform = xform
-    
+
     def save(self, output, format):
         """ Save a two-band GeoTIFF to output file-like object.
         """
         if format != 'TIFF':
             raise Exception('File format other than TIFF for slope and aspect: "%s"' % format)
-        
+
         save_slope_aspect(self.slope, self.aspect, self.wkt, self.xform, output, self.tmpdir)
-    
+
     def crop(self, box):
         """ Returns a rectangular region from the current image.
         
@@ -278,10 +278,10 @@ def make_empty_datasource(width, height, xform, wkt, tmpdir):
     ds = driver.Create(filename, width, height, 1, gdal.GDT_Float32)
     ds.SetGeoTransform(xform)
     ds.SetProjection(wkt)
-    
+
     ds.GetRasterBand(1).WriteArray(numpy.ones((width, height), numpy.float32) * -9999, 0, 0)
     ds.GetRasterBand(1).SetNoDataValue(-9999)
-    
+
     return ds
 
 def calculate_slope_aspect(elevation, xres, yres, z=1.0):
@@ -295,25 +295,25 @@ def calculate_slope_aspect(elevation, xres, yres, z=1.0):
           http://www.perrygeo.net/wordpress/?p=7
     """
     width, height = elevation.shape[0] - 2, elevation.shape[1] - 2
-    
+
     window = [z * elevation[row:(row + height), col:(col + width)]
               for (row, col)
               in product(range(3), range(3))]
-    
+
     x = ((window[0] + window[3] + window[3] + window[6]) \
        - (window[2] + window[5] + window[5] + window[8])) \
       / (8.0 * xres);
-    
+
     y = ((window[6] + window[7] + window[7] + window[8]) \
        - (window[0] + window[1] + window[1] + window[2])) \
       / (8.0 * yres);
 
     # in radians, from 0 to pi/2
-    slope = pi/2 - numpy.arctan(numpy.sqrt(x*x + y*y))
-    
+    slope = pi / 2 - numpy.arctan(numpy.sqrt(x * x + y * y))
+
     # in radians counterclockwise, from -pi at north back to pi
     aspect = numpy.arctan2(x, y)
-    
+
     return slope, aspect
 
 def load_func_path(funcpath):
@@ -326,7 +326,7 @@ def load_func_path(funcpath):
     __import__(modname)
     module = modules[modname]
     _func = eval(objname, module.__dict__)
-    
+
     if _func is None:
         raise Exception('eval(%(objname)s) in %(modname)s came up None' % locals())
 
