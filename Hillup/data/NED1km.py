@@ -52,7 +52,7 @@ def datasource(lat, lon, source_dir):
     #
     s, host, path, p, q, f = urlparse(url)
 
-    local_dir = md5(url).hexdigest()[:3]
+    local_dir = 'ned1000m'
     local_dir = join(source_dir, local_dir)
 
     local_base = join(local_dir, basename(path)[:-7])
