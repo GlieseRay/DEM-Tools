@@ -1,5 +1,6 @@
 """ Starting point for DEM retrieval utilities.
 """
+import os
 from sys import stderr
 from math import floor, ceil, log
 from os import unlink, close, write, makedirs, chmod
@@ -13,6 +14,8 @@ from hashlib import md5
 from TileStache.Geography import SphericalMercator
 
 from osgeo import gdal, osr
+
+from .download import wget
 
 ideal_zoom = 11 ### log(3 * 360*360 / 256) / log(2) # ~10.6
 
@@ -55,6 +58,7 @@ def datasource(lat, lon, source_dir):
 
     local_base = join(local_dir, basename(path)[:-7])
     local_path = local_base + '.tif'
+    local_temp = local_base + '.temp.tif'
     local_none = local_base + '.404'
 
     #
@@ -77,21 +81,18 @@ def datasource(lat, lon, source_dir):
     #
     print >> stderr, 'Retrieving', url, 'in DEM.NED100m.datasource().'
 
-    conn = HTTPConnection(host, 80)
-    conn.request('GET', path)
-    resp = conn.getresponse()
-
-    if resp.status in range(400, 500):
-        # we're probably outside the coverage area
-        print >> open(local_none, 'w'), url
+    try:
+        wget(url, local_temp)
+    except Exception:
+        with open(local_none, 'w') as fp:
+            fp.write(url)
         return None
 
-    assert resp.status == 200, (resp.status, resp.read())
+    zipped = GzipFile(filename=local_temp, mode='r')
+    with open(local_path, 'w') as fp:
+        fp.write(zipped.read())
 
-    body = StringIO(resp.read())
-    file = GzipFile(fileobj=body, mode='r')
-
-    open(local_path, mode='w').write(file.read())
+    os.remove(local_temp)
 
     #
     # The file better exist locally now
