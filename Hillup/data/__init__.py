@@ -12,7 +12,7 @@ from ModestMaps.Core import Coordinate
 from TileStache.Geography import SphericalMercator
 from TileStache.Core import Layer, Metatile
 from TileStache.Config import Configuration
-from TileStache.Caches import Disk
+from TileStache.Caches import Disk, Test
 
 from osgeo import gdal, osr
 from PIL import Image
@@ -42,7 +42,8 @@ class SeedingLayer (Layer):
     def __init__(self, demdir, tiledir, tmpdir, source):
         """
         """
-        cache = Disk(tiledir, dirs='safe')
+        #cache = Disk(tiledir, dirs='safe')
+        cache = Test()
         config = Configuration(cache, '.')
         Layer.__init__(self, config, SphericalMercator(), Metatile())
 
@@ -108,7 +109,7 @@ class Provider:
 
         driver = gdal.GetDriverByName('GTiff')
 
-        composite_ds = make_empty_datasource(width + 2, height + 2, buffered_xform, area_wkt, self.tmpdir)
+#        composite_ds = make_empty_datasource(width + 2, height + 2, buffered_xform, area_wkt, self.tmpdir)
         proportion_complete = 0.
 
         for (module, proportion) in providers:
@@ -130,20 +131,23 @@ class Provider:
             ds_args = minlon, minlat, maxlon, maxlat, self.demdir
 
             for ds_dem in module.datasources(*ds_args):
-
+                pass
                 # estimate the raster density across source DEM and output
-                dem_samples = (maxlon - minlon) / ds_dem.GetGeoTransform()[1]
-                area_pixels = (xmax - xmin) / composite_ds.GetGeoTransform()[1]
+#                dem_samples = (maxlon - minlon) / ds_dem.GetGeoTransform()[1]
+#                area_pixels = (xmax - xmin) / composite_ds.GetGeoTransform()[1]
 
-                if dem_samples > area_pixels:
+#                if dem_samples > area_pixels:
                     # cubic looks better squeezing down
-                    resample = gdal.GRA_Cubic
-                else:
+#                    resample = gdal.GRA_Cubic
+#                else:
                     # cubic spline looks better stretching out
-                    resample = gdal.GRA_CubicSpline
+#                    resample = gdal.GRA_CubicSpline
 
-                gdal.ReprojectImage(ds_dem, composite_ds, ds_dem.GetProjection(), composite_ds.GetProjection(), resample)
-                ds_dem = None
+#                gdal.ReprojectImage(ds_dem, composite_ds, ds_dem.GetProjection(), composite_ds.GetProjection(), resample)
+#                ds_dem = None
+            class DummyImgObject():
+                def save(self, *args, **kwargs): pass
+            return DummyImgObject()
 
             #
             # Perform alpha-blending if needed.
